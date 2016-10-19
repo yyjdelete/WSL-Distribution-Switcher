@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
+  <dc:creator>EasyHook</dc:creator>
+  <dc:description>This project supports extending (hooking) unmanaged code (APIs) on 32- or 64-bit
+Windows XP SP2, Windows Vista x64, Windows Server 2008 x64, Windows 7, Windows 8.1, and Windows 10.</dc:description>
+  <dc:identifier>EasyHookNativePackage</dc:identifier>
+  <version>2.7.6035.0</version>
+  <keywords>api hook hooking easyhook native nativepackage</keywords>
+  <lastModifiedBy>NuGet, Version=3.4.4.1321, Culture=neutral, PublicKeyToken=31bf3856ad364e35;Microsoft Windows NT 6.2.9200.0;.NET Framework 4.5</lastModifiedBy>
+</coreProperties>

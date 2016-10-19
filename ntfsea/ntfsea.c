@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "ntfsea.h"
+
 #define DLL_EXPORT __declspec(dllexport)
 
 #define MAX_LIST_LEN 4096
@@ -285,4 +287,177 @@ DLL_EXPORT LONG32 WriteEa(PWSTR FileName, PSTR EaName, PSTR EaValue, ULONG32 EaV
 	NtClose(FileHandle);
 
 	return EaBuffer->EaValueLength;
+}
+
+#include <easyhook.h>
+BOOL enableHook = FALSE;
+BOOL initHook = FALSE;
+#if defined(_DEBUG) 
+	#define HOOK_DEBUG(format, ...) printf(format"\n", ##__VA_ARGS__)
+#else
+	#define HOOK_DEBUG(format, ...)
+#endif
+
+//
+// use the Win32 API instead
+//     CreateFile
+//
+__kernel_entry NTSTATUS
+NTAPI
+NtCreateFileHook(
+	OUT PHANDLE FileHandle,
+	IN ACCESS_MASK DesiredAccess,
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	IN PLARGE_INTEGER AllocationSize OPTIONAL,
+	IN ULONG FileAttributes,
+	IN ULONG ShareAccess,
+	IN ULONG CreateDisposition,
+	IN ULONG CreateOptions,
+	IN PVOID EaBuffer OPTIONAL,
+	IN ULONG EaLength
+
+) {
+	HOOK_DEBUG("NtCreateFileHook %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
+	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HOOK_DEBUG("NtCreateFileHook to %x", ObjectAttributes->Attributes);
+	NTSTATUS res = NtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+	HOOK_DEBUG("NtCreateFileHook res = %lx", res);
+	return res;
+}
+
+//
+// use the Win32 API instead
+//     CreateFile
+//
+NTSTATUS
+NTAPI
+NtOpenFileHook(
+	OUT PHANDLE FileHandle,
+	IN ACCESS_MASK DesiredAccess,
+	IN POBJECT_ATTRIBUTES ObjectAttributes,
+	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	IN ULONG ShareAccess,
+	IN ULONG OpenOptions
+) {
+	HOOK_DEBUG("NtOpenFileHook %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
+	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HOOK_DEBUG("NtOpenFileHook to %x", ObjectAttributes->Attributes);
+	NTSTATUS res = NtOpenFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+	HOOK_DEBUG("NtOpenFileHook res = %lx", res);
+	return res;
+}
+
+NTSTATUS
+NTAPI
+NtQueryFullAttributesFileHook(
+	IN POBJECT_ATTRIBUTES   ObjectAttributes,
+	OUT PVOID FileAttributes)
+{
+	HOOK_DEBUG("NtQueryFullAttributesFile %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
+	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HOOK_DEBUG("NtQueryFullAttributesFile to %x", ObjectAttributes->Attributes);
+	NTSTATUS res = NtQueryFullAttributesFile(ObjectAttributes, FileAttributes);
+	HOOK_DEBUG("NtQueryFullAttributesFile res = %lx", res);
+	return res;
+}
+
+NTSTATUS
+NTAPI
+NtQueryAttributesFileHook(
+	IN POBJECT_ATTRIBUTES   ObjectAttributes,
+	OUT PVOID FileAttributes)
+{
+	HOOK_DEBUG("NtQueryAttributesFile %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
+	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HOOK_DEBUG("NtQueryAttributesFile to %x", ObjectAttributes->Attributes);
+	NTSTATUS res = NtQueryAttributesFile(ObjectAttributes, FileAttributes);
+	HOOK_DEBUG("NtQueryAttributesFile res = %lx", res);
+	return res;
+}
+
+HOOK_TRACE_INFO hHookOpen = { NULL }; // keep track of our hook
+HOOK_TRACE_INFO hHookCreate = { NULL }; // keep track of our hook
+HOOK_TRACE_INFO hHookFullAttrubute = { NULL }; // keep track of our hook
+HOOK_TRACE_INFO hHookAttrubute = { NULL }; // keep track of our hook
+
+DLL_EXPORT BOOL UnInitHook()
+{
+	if (!initHook) return TRUE;
+	LhUninstallAllHooks();
+	LhWaitForPendingRemovals();
+	enableHook = FALSE;
+	initHook = FALSE;
+	return TRUE;
+}
+
+DLL_EXPORT BOOL InitHook()
+{
+	if (initHook) return TRUE;
+
+	NTSTATUS result;
+	void* pNtCreateFile = GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "NtCreateFile");//&NtCreateFile
+	void* pNtOpenFile = GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "NtOpenFile");//&NtOpenFile
+	void* pNtQueryFullAttributesFile = GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "NtQueryFullAttributesFile");//&NtQueryFullAttributesFile
+	void* pNtQueryAttributesFile = GetProcAddress(GetModuleHandle(_T("ntdll.dll")), "NtQueryAttributesFile");//&NtQueryFullAttributesFile
+	result = LhInstallHook(pNtCreateFile, NtCreateFileHook, NULL, &hHookCreate);
+	if (FAILED(result))
+		goto ERR;
+
+	result = LhInstallHook(pNtOpenFile, NtOpenFileHook, NULL, &hHookOpen);
+	if (FAILED(result))
+		goto ERR;
+
+	//used by GetFileAttributeExW
+	result = LhInstallHook(pNtQueryFullAttributesFile, NtQueryFullAttributesFileHook, NULL, &hHookFullAttrubute);
+	if (FAILED(result))
+		goto ERR;
+	result = LhInstallHook(pNtQueryAttributesFile, NtQueryAttributesFileHook, NULL, &hHookAttrubute);
+	if (FAILED(result))
+		goto ERR;
+
+	initHook = TRUE;
+	return TRUE;
+
+ERR:
+	initHook = TRUE;
+	UnInitHook();
+	return FALSE;
+}
+
+
+DLL_EXPORT BOOL DisablePosix()
+{
+	if (!enableHook) return TRUE;
+#if 0
+	UnInitHook();
+#else
+	ULONG ACLEntries[1] = { 0 };
+	LhSetInclusiveACL(ACLEntries, 0, &hHookCreate);
+	LhSetInclusiveACL(ACLEntries, 0, &hHookOpen);
+	LhSetInclusiveACL(ACLEntries, 0, &hHookAttrubute);
+	LhSetInclusiveACL(ACLEntries, 0, &hHookFullAttrubute);
+#endif
+	enableHook = FALSE;
+	return TRUE;
+}
+
+DLL_EXPORT BOOL EnablePosix()
+{
+	if (enableHook) return TRUE;
+
+	if (!InitHook()) return FALSE;
+
+	// If the threadId in the ACL is set to 0, 
+	// then internally EasyHook uses GetCurrentThreadId()
+	ULONG ACLEntries[1] = { 0 };
+
+	// Enable the hook for the provided threadIds
+	LhSetInclusiveACL(ACLEntries, 1, &hHookCreate);
+	LhSetInclusiveACL(ACLEntries, 1, &hHookOpen);
+	LhSetInclusiveACL(ACLEntries, 1, &hHookAttrubute);
+	LhSetInclusiveACL(ACLEntries, 1, &hHookFullAttrubute);
+
+	enableHook = TRUE;
+	return TRUE;
 }

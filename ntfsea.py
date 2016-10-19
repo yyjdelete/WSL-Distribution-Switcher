@@ -267,6 +267,8 @@ class ntfsea:
 			ntfsea.lib.GetEaList.restype = ctypes.POINTER(ntfsea_EaList)
 			ntfsea.lib.GetEa.restype     = ctypes.POINTER(ntfsea_Ea)
 			ntfsea.lib.WriteEa.restype   = ctypes.c_int
+			ntfsea.lib.EnablePosix.restype   = ctypes.c_bool
+			ntfsea.lib.DisablePosix.restype   = ctypes.c_bool
 
 	@staticmethod
 	def getattrlist(file):
@@ -322,4 +324,24 @@ class ntfsea:
 		"""
 
 		ret = ntfsea.lib.WriteEa(ntfsea.pwstr(file), ntfsea.pstr(name), ntfsea.pbytes(value), len(value))
+		return ret
+
+	@staticmethod
+	def enableposix():
+		"""
+		Hook some sys api to make io case-sensitive.
+		:return: True if success.
+		"""
+
+		ret = ntfsea.lib.EnablePosix()
+		return ret
+
+	@staticmethod
+	def disableposix():
+		"""
+		Revert enableposix.
+		:return: True if success.
+		"""
+
+		ret = ntfsea.lib.DisablePosix()
 		return ret

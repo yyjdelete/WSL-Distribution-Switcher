@@ -24,17 +24,21 @@ except ImportError:
 
 imgarg   = ''
 runhooks = True
+case_sensitive = False
 
 if len(sys.argv) > 1:
 	for arg in sys.argv[1:]:
 		if arg.lower() == '--no-hooks':
 			runhooks = False
+		elif arg.lower() == '--case-sensitive':
+			case_sensitive = True
 		elif not imgarg:
 			imgarg = arg
 
 if not imgarg:
-	print('usage: ./install.py [--no-hooks] image[:tag] | tarball | squashfs')
+	print('usage: ./install.py [--no-hooks] [--case-sensitive] image[:tag] | tarball | squashfs')
 	print('\noptions:\n  --no-hooks    Omits running the hook scripts.')
+	print('\n  --case-sensitive    [TEST ONLY]Make IO case-sensitive. HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel\\obcaseinsensitive must be set to 0 and reboot.')
 	exit(-1)
 
 image, tag, fname, label = parse_image_arg(imgarg, True)
@@ -150,6 +154,14 @@ if etcshadowroot:
 		etcshadowroot = ''
 	else:
 		etcshadowroot = parts[1]
+
+# enable here for `path` and `SystemRoot` don't always have right case
+if case_sensitive:
+	try:
+		ntfsea.init()
+		ntfsea.enableposix()
+	except Exception:
+		pass
 
 # remove old remnants
 
@@ -336,6 +348,13 @@ else:
 	finally:
 		clear_progress()
 		show_cursor()
+
+# disable here for `path` and `SystemRoot` don't always have right case
+if case_sensitive:
+	try:
+		ntfsea.disableposix()
+	except Exception:
+		pass
 
 # read label of current distribution
 
