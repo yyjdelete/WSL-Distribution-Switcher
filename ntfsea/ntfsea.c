@@ -87,7 +87,7 @@ struct EaList
  *
  * \return Handle to the opened file pointer or NULL on failure.
  */
-HANDLE GetFileHandle(PWSTR DosFileName, BOOL Write, PFILE_FULL_EA_INFORMATION EaBuffer, PULONG EaLength)
+HANDLE GetFileHandle(PWSTR DosFileName, BOOL Write, PFILE_FULL_EA_INFORMATION EaBuffer, ULONG EaLength)
 {
 	UNICODE_STRING FileName;
 	OBJECT_ATTRIBUTES ObjectAttributes;
@@ -249,7 +249,7 @@ DLL_EXPORT LONG32 WriteEa(PWSTR FileName, PSTR EaName, PSTR EaValue, ULONG32 EaV
 	PFILE_FULL_EA_INFORMATION EaBuffer = NULL;
 	ULONG EaLength = 0;
 
-	FileHandle = GetFileHandle(FileName, TRUE, EaBuffer, &EaLength);
+	FileHandle = GetFileHandle(FileName, TRUE, EaBuffer, EaLength);
 	if (FileHandle == NULL)
 	{
 		return -1;
