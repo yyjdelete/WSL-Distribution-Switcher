@@ -238,6 +238,11 @@ class ntfsea_EaList(ctypes.Structure):
 	            ('List',     ntfsea_Ea * 4096)]
 
 
+import os
+
+package_folder = os.path.dirname(os.path.abspath(__file__))
+os.environ["PATH"] = package_folder + ";" + os.environ["PATH"]
+
 # class for interfacing with the ntfsea.dll library
 
 class ntfsea:

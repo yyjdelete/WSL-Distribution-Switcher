@@ -98,14 +98,15 @@ def parse_image_arg(argv, can_be_file = False):
 			exit(-1)
 
 		idx = -1
+		basename = os.path.basename(argvl)
 
 		for ext in exts:
-			idx = argvl.find(ext)
+			idx = basename.find(ext)
 
 			if idx != -1:
 				break
 
-		label = argvl[:idx]
+		label = basename[:idx]
 
 		if label.startswith('rootfs_'):
 			label = label[len('rootfs_'):]
