@@ -38,7 +38,7 @@ if len(sys.argv) > 1:
 if not imgarg:
 	print('usage: ./install.py [--no-hooks] [--case-sensitive] image[:tag] | tarball | squashfs')
 	print('\noptions:\n  --no-hooks    Omits running the hook scripts.')
-	print('\n  --case-sensitive    [TEST ONLY]Make IO case-sensitive. HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel\\obcaseinsensitive must be set to 0 and reboot.')
+	print('\n  --case-sensitive    [TEST ONLY]Make IO case-sensitive. NOTE when using with win10 before TH2 or if not working, HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\kernel\\obcaseinsensitive must be set to 0 and reboot.')
 	exit(-1)
 
 image, tag, fname, label = parse_image_arg(imgarg, True)

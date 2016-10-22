@@ -298,6 +298,11 @@ BOOL initHook = FALSE;
 	#define HOOK_DEBUG(format, ...)
 #endif
 
+void HackIO(IN POBJECT_ATTRIBUTES ObjectAttributes)
+{
+	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+}
+
 //
 // use the Win32 API instead
 //     CreateFile
@@ -319,7 +324,7 @@ NtCreateFileHook(
 
 ) {
 	HOOK_DEBUG("NtCreateFileHook %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
-	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HackIO(ObjectAttributes);
 	HOOK_DEBUG("NtCreateFileHook to %x", ObjectAttributes->Attributes);
 	NTSTATUS res = NtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 	HOOK_DEBUG("NtCreateFileHook res = %lx", res);
@@ -341,7 +346,7 @@ NtOpenFileHook(
 	IN ULONG OpenOptions
 ) {
 	HOOK_DEBUG("NtOpenFileHook %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
-	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HackIO(ObjectAttributes);
 	HOOK_DEBUG("NtOpenFileHook to %x", ObjectAttributes->Attributes);
 	NTSTATUS res = NtOpenFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 	HOOK_DEBUG("NtOpenFileHook res = %lx", res);
@@ -355,7 +360,7 @@ NtQueryFullAttributesFileHook(
 	OUT PVOID FileAttributes)
 {
 	HOOK_DEBUG("NtQueryFullAttributesFile %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
-	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HackIO(ObjectAttributes);
 	HOOK_DEBUG("NtQueryFullAttributesFile to %x", ObjectAttributes->Attributes);
 	NTSTATUS res = NtQueryFullAttributesFile(ObjectAttributes, FileAttributes);
 	HOOK_DEBUG("NtQueryFullAttributesFile res = %lx", res);
@@ -369,7 +374,7 @@ NtQueryAttributesFileHook(
 	OUT PVOID FileAttributes)
 {
 	HOOK_DEBUG("NtQueryAttributesFile %wZ from %x", ObjectAttributes->ObjectName, ObjectAttributes->Attributes);
-	ObjectAttributes->Attributes = ObjectAttributes->Attributes & (~OBJ_CASE_INSENSITIVE);
+	HackIO(ObjectAttributes);
 	HOOK_DEBUG("NtQueryAttributesFile to %x", ObjectAttributes->Attributes);
 	NTSTATUS res = NtQueryAttributesFile(ObjectAttributes, FileAttributes);
 	HOOK_DEBUG("NtQueryAttributesFile res = %lx", res);
@@ -438,6 +443,11 @@ DLL_EXPORT BOOL DisablePosix()
 	LhSetInclusiveACL(ACLEntries, 0, &hHookAttrubute);
 	LhSetInclusiveACL(ACLEntries, 0, &hHookFullAttrubute);
 #endif
+
+	HANDLE curThread = GetCurrentThread();
+	int enabled = 0;
+	NtSetInformationThread(curThread, ThreadExplicitCaseSensitivity, &enabled, 4);
+
 	enableHook = FALSE;
 	return TRUE;
 }
@@ -457,6 +467,11 @@ DLL_EXPORT BOOL EnablePosix()
 	LhSetInclusiveACL(ACLEntries, 1, &hHookOpen);
 	LhSetInclusiveACL(ACLEntries, 1, &hHookAttrubute);
 	LhSetInclusiveACL(ACLEntries, 1, &hHookFullAttrubute);
+
+	//Hope that in new windows(since 10 TH2?), don't need to modify the reg and reboot
+	HANDLE curThread = GetCurrentThread();
+	int enabled = 1;
+	NtSetInformationThread(curThread, ThreadExplicitCaseSensitivity, &enabled, 4);
 
 	enableHook = TRUE;
 	return TRUE;
