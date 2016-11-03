@@ -452,6 +452,56 @@ DLL_EXPORT BOOL DisablePosix()
 	return TRUE;
 }
 
+//https://msdn.microsoft.com/en-us/library/windows/desktop/aa446619(v=vs.85).aspx
+BOOL SetPrivilege(
+	HANDLE hToken,          // access token handle
+	LPCTSTR lpszPrivilege,  // name of privilege to enable/disable
+	BOOL bEnablePrivilege   // to enable or disable privilege
+)
+{
+	TOKEN_PRIVILEGES tp;
+	LUID luid;
+
+	if (!LookupPrivilegeValue(
+		NULL,            // lookup privilege on local system
+		lpszPrivilege,   // privilege to lookup 
+		&luid))        // receives LUID of privilege
+	{
+		printf("LookupPrivilegeValue error: %u\n", GetLastError());
+		return FALSE;
+	}
+
+	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Luid = luid;
+	if (bEnablePrivilege)
+		tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	else
+		tp.Privileges[0].Attributes = 0;
+
+	// Enable the privilege or disable all privileges.
+
+	if (!AdjustTokenPrivileges(
+		hToken,
+		FALSE,
+		&tp,
+		sizeof(TOKEN_PRIVILEGES),
+		(PTOKEN_PRIVILEGES)NULL,
+		(PDWORD)NULL))
+	{
+		printf("AdjustTokenPrivileges error: %u\n", GetLastError());
+		return FALSE;
+	}
+
+	if (GetLastError() == ERROR_NOT_ALL_ASSIGNED)
+
+	{
+		printf("The token does not have the specified privilege. \n");
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 DLL_EXPORT BOOL EnablePosix()
 {
 	if (enableHook) return TRUE;
@@ -469,6 +519,19 @@ DLL_EXPORT BOOL EnablePosix()
 	LhSetInclusiveACL(ACLEntries, 1, &hHookFullAttrubute);
 
 	//Hope that in new windows(since 10 TH2?), don't need to modify the reg and reboot
+	//DEBUG PERM is required(run as admin is required for get the perm), c0000061 without it
+#if 0
+	HANDLE htt;
+	if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &htt)) {
+	//if (OpenThreadToken(GetCurrentThread(), TOKEN_ADJUST_PRIVILEGES, TRUE, &htt)) {
+		SetPrivilege(htt, SE_DEBUG_NAME, TRUE);
+		CloseHandle(htt);
+	}
+#else
+	BOOLEAN old;
+	RtlAdjustPrivilege(SE_DEBUG_PRIVILEGE, TRUE, FALSE, &old);
+#endif
+	//Protected Process is required(drv is needed to get it?), c0000022 without it
 	HANDLE curThread = GetCurrentThread();
 	int enabled = 1;
 	NtSetInformationThread(curThread, ThreadExplicitCaseSensitivity, &enabled, 4);

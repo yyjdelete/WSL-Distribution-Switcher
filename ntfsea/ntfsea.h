@@ -267,3 +267,27 @@ NtSetInformationThread(
 	IN PVOID                ThreadInformation,
 	IN ULONG                ThreadInformationLength);
 
+#define SE_DEBUG_PRIVILEGE 20
+//CurrentThread: TRUE->Thread, FALSE->Process
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlAdjustPrivilege(
+	ULONG Privilege,
+	BOOLEAN Enable,
+	BOOLEAN CurrentThread,
+	PBOOLEAN WasEnabled
+);
+
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlAcquirePrivilege(
+	PULONG Privilege,
+	ULONG NumPriv,
+	ULONG Flags,
+	PVOID *ReturnedState
+);
+
+EXTERN_C_END
+
